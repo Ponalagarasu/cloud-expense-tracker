@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Tracker Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --panel-alt: #eef6ff;
+        --primary: #2d6cdf;
+        --primary-strong: #1f4db8;
+        --secondary: #10b981;
+        --accent: #f59e0b;
+        --danger: #ef4444;
+        --text: #172033;
+        --muted: #59708b;
+        --border: #e5edf9;
+        --shadow: 0 20px 45px rgba(20, 37, 63, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        background: linear-gradient(180deg, #edf4ff 0%, #f7f9fc 100%);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 28px 18px 48px;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .topbar h1 {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        letter-spacing: -0.03em;
+      }
+      .badge {
+        padding: 10px 16px;
+        background: linear-gradient(135deg, rgba(45,108,223,0.15), rgba(16,185,129,0.15));
+        color: var(--primary-strong);
+        border: 1px solid rgba(45,108,223,0.18);
+        border-radius: 999px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      :root {
+        color-scheme: light;
+      }
+      body.dark-mode {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-alt: #0b1220;
+        --primary: #7aa2ff;
+        --primary-strong: #9db9ff;
+        --secondary: #34d399;
+        --accent: #fbbf24;
+        --danger: #f87171;
+        --text: #e5edf8;
+        --muted: #9db0c7;
+        --border: rgba(148,163,184,0.18);
+        --shadow: 0 18px 45px rgba(2, 6, 23, 0.45);
+        background: linear-gradient(180deg, #060d1f 0%, #111827 100%);
+      }
+      body.dark-mode .panel,
+      body.dark-mode .chart-box,
+      body.dark-mode .filter-box select,
+      body.dark-mode input,
+      body.dark-mode .stat-box,
+      body.dark-mode .budget-card {
+        background: rgba(17,24,39,0.9);
+        color: var(--text);
+      }
+      body.dark-mode .stat-box,
+      body.dark-mode .chart-box,
+      body.dark-mode .budget-card {
+        border-color: rgba(148,163,184,0.18);
+      }
+      body.dark-mode th {
+        background: rgba(15,23,42,0.9);
+      }
+      .panel {
+        background: rgba(255,255,255,0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(229,237,249,0.9);
+        border-radius: 22px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+      }
+      .budget-card {
+        background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(45,108,223,0.08));
+        border: 1px solid rgba(16,185,129,0.15);
+        border-radius: 18px;
+        padding: 18px;
+      }
+      .budget-card h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+      .budget-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .budget-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+      .filter-box {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .filter-box select {
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+        color: var(--text);
+      }
+      .action-link, .danger-link {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .action-link {
+        background: #edf4ff;
+        color: var(--primary-strong);
+      }
+      .danger-link {
+        background: #fff1f2;
+        color: var(--danger);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+      }
+      .subheading {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin: 0 0 16px;
+      }
+      form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 14px;
+      }
+      input, button {
+        width: 100%;
+        padding: 13px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        font-size: 15px;
+        background: #fff;
+      }
+      input:focus {
+        outline: 2px solid rgba(45,108,223,0.18);
+        border-color: var(--primary);
+      }
+      button {
+        background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+        color: #fff;
+        border: none;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(45,108,223,0.25);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 14px;
+      }
+      .stat-box {
+        background: linear-gradient(180deg, rgba(233,240,255,0.8), rgba(240,247,255,0.95));
+        border: 1px solid rgba(45,108,223,0.12);
+        border-radius: 18px;
+        padding: 18px 16px;
+      }
+      .stat-box strong {
+        display: block;
+        color: var(--muted);
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .stat-box .amount {
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: var(--text);
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(260px, 1fr));
+        gap: 20px;
+      }
+      .chart-box {
+        background: linear-gradient(180deg, #fbfcff, #f7fbff);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px;
+      }
+      canvas {
+        max-height: 260px;
+      }
+      .report-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+      th {
+        background: #f8fbff;
+        color: var(--muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .summary-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .summary-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+      }
+      .meta-line {
+        color: var(--muted);
+        margin-top: 10px;
+        line-height: 1.8;
+      }
+      .meta-line strong {
+        color: var(--text);
+      }
+      .finance-note {
+        margin-top: 14px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      @media (max-width: 900px) {
+        .grid, .report-grid, .charts {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <h1>Expense Tracker</h1>
+        <div class="badge" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <span>INR financial dashboard</span>
+          {% if current_user %}
+            <span style="padding:6px 10px; border-radius: 999px; background: rgba(16,185,129,0.12); color: #047857; font-size: 0.75rem;">{{ current_user.username }} · {{ current_user.role|title }}</span>
+            <a href="/history" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">History</a>
+            <a href="/guide" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Guide</a>
+            {% if current_user.role == 'admin' %}
+              <a href="/admin" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Admin</a>
+            {% endif %}
+            <a href="/logout" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Logout</a>
+          {% else %}
+            <a href="/login" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Login</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="toolbar">
+          <h2 class="subheading" style="margin: 0;">Dashboard controls</h2>
+          <div class="filter-box">
+            <form class="filter-box" method="get" action="/">
+              <input type="text" name="q" value="{{ search_term }}" placeholder="Search expense" style="min-width:180px;" />
+              <select name="category">
+                <option value="">All categories</option>
+                {% for category in categories %}
+                  <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+              </select>
+              <select name="month">
+                <option value="">All months</option>
+                {% for month in months %}
+                  <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>{{ month }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit">Apply filters</button>
+              {% if selected_category or selected_month or search_term %}
+                <a href="/" class="action-link">Clear</a>
+              {% endif %}
+            </form>
+            <button id="themeToggle" type="button" style="width:auto; padding:10px 14px;">Dark mode</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div>
+            <h2 class="subheading">Add expense</h2>
+            <form action="/expenses" method="post">
+              <input type="text" name="title" placeholder="Expense title" required />
+              <input type="number" name="amount" step="0.01" placeholder="Amount" required />
+              <input type="text" name="category" placeholder="Category" required />
+              <input type="date" name="date" required />
+              <label style="display:flex; align-items:center; gap:10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.8);">
+                <input type="checkbox" name="is_recurring" />
+                <span>Recurring expense</span>
+              </label>
+              <button type="submit">Add expense</button>
+            </form>
+          </div>
+
+          <div>
+            <h2 class="subheading">Financial snapshot</h2>
+            <div class="stats">
+              <div class="stat-box">
+                <strong>Total spent</strong>
+                <div class="amount">{{ format_inr(total_spent) }}</div>
+              </div>
+              <div class="stat-box">
+                <strong>Average expense</strong>
+                <div class="amount">{{ format_inr(dashboard.averageExpense) }}</div>
+              </div>
+              <div class="stat-box">
+                <strong>Transactions</strong>
+                <div class="amount">{{ dashboard.expenseCount }}</div>
+              </div>
+              <div class="stat-box">
+                <strong>Top category</strong>
+                <div class="amount">{{ dashboard.topCategory.category }}</div>
+              </div>
+            </div>
+
+            <div class="budget-card" style="margin-top: 18px;" data-budget="{{ '%.2f'|format(monthly_budget) }}">
+              <h3>Monthly budget</h3>
+              <div class="budget-row">
+                <div>
+                  <div class="budget-value">{{ format_inr(monthly_budget) }}</div>
+                  <div style="color: var(--muted);">Remaining: {{ format_inr(remaining_budget) }}</div>
+                </div>
+                <form action="/budget" method="post" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <input type="number" name="monthly_budget" step="0.01" value="{{ '%.2f'|format(monthly_budget) }}" placeholder="Set budget" style="min-width: 160px;" />
+                  <button type="submit" style="width:auto; padding: 10px 14px;">Save</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 class="subheading">Performance overview</h2>
+        <div class="charts">
+          <div class="chart-box">
+            <canvas id="barChart"></canvas>
+          </div>
+          <div class="chart-box">
+            <canvas id="pieChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-grid">
+        <div class="panel">
+          <h2 class="subheading">Recent expenses</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for expense in expenses %}
+                <tr>
+                  <td>{{ expense["title"] }}</td>
+                  <td>{{ expense["category"] }}</td>
+                  <td>{{ format_inr(expense["amount"]) }}</td>
+                  <td>{{ expense["date"] }}</td>
+                  <td>
+                    {% if expense["is_recurring"] %}
+                      <span style="display:inline-block; margin-right:8px; padding:4px 8px; border-radius:999px; background:#ecfdf5; color:#047857; font-size:0.72rem; font-weight:700;">Recurring</span>
+                    {% endif %}
+                    <form action="/expenses/{{ expense['id'] }}/edit" method="post" style="display:inline-flex; gap:8px; align-items:center;">
+                      <input type="hidden" name="title" value="{{ expense['title'] }}" />
+                      <input type="hidden" name="amount" value="{{ expense['amount'] }}" />
+                      <input type="hidden" name="category" value="{{ expense['category'] }}" />
+                      <input type="hidden" name="date" value="{{ expense['date'] }}" />
+                      <input type="hidden" name="is_recurring" value="{{ 1 if expense['is_recurring'] else 0 }}" />
+                      <button type="submit" style="padding:6px 10px; font-size:0.78rem; border-radius:8px;">Edit</button>
+                    </form>
+                    <form action="/expenses/{{ expense['id'] }}/delete" method="post" style="display:inline-flex; margin-left:8px;">
+                      <button type="submit" style="padding:6px 10px; font-size:0.78rem; border-radius:8px; background:linear-gradient(135deg,#ef4444,#dc2626);">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="5">No expenses recorded yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="subheading">Category summary</h2>
+          {% if totals %}
+            <ul class="summary-list">
+              {% for item in totals %}
+                <li>
+                  <span>{{ item["category"] }}</span>
+                  <strong>{{ format_inr(item["total"]) }}</strong>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p>No category totals available yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="budget-row" style="align-items:flex-start;">
+          <div>
+            <h2 class="subheading" style="margin-bottom: 6px;">Financial report</h2>
+            <div class="meta-line">
+              Top month: <strong>{{ dashboard.topMonth.month }}</strong> · Total: <strong>{{ format_inr(dashboard.topMonth.total) }}</strong>
+            </div>
+            <div class="meta-line">
+              Top category: <strong>{{ dashboard.topCategory.category }}</strong> · Total: <strong>{{ format_inr(dashboard.topCategory.total) }}</strong>
+            </div>
+            <div class="meta-line">
+              Peak season: <strong>{{ dashboard.topSeason.season }}</strong> · Total: <strong>{{ format_inr(dashboard.topSeason.total) }}</strong>
+            </div>
+            <p class="finance-note">
+              This report gives a quick view of spending trends, category concentration, and monthly cash flow.
+              Use it to catch the biggest financial patterns in your household or business budget.
+            </p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px; align-items:flex-end;">
+            <a href="/export/csv" class="action-link" style="padding: 10px 16px;">Export CSV</a>
+            <a href="/history" class="action-link" style="padding: 10px 16px;">Expense History</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const categoryData = {{ dashboard.categoryTotals | tojson }};
+      const monthlyData = {{ dashboard.monthlyTotals | tojson }};
+
+      const barCtx = document.getElementById('barChart');
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: monthlyData.map(item => item.month),
+          datasets: [{
+            label: 'Monthly spend (INR)',
+            data: monthlyData.map(item => item.total),
+            backgroundColor: ['#2d6cdf', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6'],
+            borderRadius: 8,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: value => '₹' + Number(value).toLocaleString('en-IN') }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      const pieCtx = document.getElementById('pieChart');
+      new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: categoryData.map(item => item.category),
+          datasets: [{
+            data: categoryData.map(item => item.total),
+            backgroundColor: ['#2d6cdf', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+
+      const themeToggle = document.getElementById('themeToggle');
+      const savedTheme = localStorage.getItem('expense-theme');
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = 'Light mode';
+      }
+      themeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('expense-theme', isDark ? 'dark' : 'light');
+        themeToggle.textContent = isDark ? 'Light mode' : 'Dark mode';
+      });
+    </script>
+  </body>
+</html>

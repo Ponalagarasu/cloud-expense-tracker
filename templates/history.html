@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense History</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', sans-serif;
+        background: #f8fafc;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px;
+      }
+      .card {
+        background: white;
+        border-radius: 18px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+        padding: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 10px 12px;
+        text-align: left;
+      }
+      .link {
+        color: #1d4ed8;
+        text-decoration: none;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>Expense History</h1>
+        <p><a class="link" href="/">Back to dashboard</a></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in history %}
+            <tr>
+              <td>{{ item["action_date"] }}</td>
+              <td>{{ item["action_type"] }}</td>
+              <td>{{ item["category"] or 'General' }}</td>
+              <td>{{ format_inr(item["amount"] or 0) }}</td>
+              <td>{{ item["description"] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">No history yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

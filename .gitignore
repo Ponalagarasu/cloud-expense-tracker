@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment Variables & Secrets
+.env
+
+# Local SQLite Database (Avoid committing local dev data to GitHub)
+*.db
+expenses.db
+
+# Operating System Files
+.DS_Store
+Thumbs.db
