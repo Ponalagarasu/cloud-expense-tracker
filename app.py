@@ -623,6 +623,7 @@ def login():
         password = request.form.get("password", "")
         user = get_user_by_username(username)
         if user and check_password_hash(user["password_hash"], password):
+            session.clear()
             session["user_id"] = user["id"]
             return redirect("/")
         return render_template("login.html", error="Invalid username or password.")
@@ -645,6 +646,7 @@ def register():
         )
         db.commit()
         user = get_user_by_username(username)
+        session.clear()
         session["user_id"] = user["id"]
         return redirect("/")
     return render_template("register.html")
