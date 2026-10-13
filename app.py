@@ -123,19 +123,18 @@ def add_missing_column(db, table_name, column_name, definition):
         if "duplicate column" not in str(exc).lower() and "already exists" not in str(exc).lower():
             raise
 
-
 def init_db():
     db = connect_db()
-    db.execute(
-        """
+    id_type = "SERIAL PRIMARY KEY" if os.environ.get("DATABASE_URL") else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+    db.execute(f"""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_type},
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user'
         )
-        """
-    )
+    """)
     add_missing_column(db, "users", "role", "TEXT NOT NULL DEFAULT 'user'")
 
     guest_user = db.execute("SELECT id FROM users WHERE username = ?", ("guest",)).fetchone()
@@ -152,10 +151,9 @@ def init_db():
             ("admin", generate_password_hash("admin123"), "admin"),
         )
 
-    db.execute(
-        """
+    db.execute(f"""
         CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_type},
             title TEXT NOT NULL,
             amount REAL NOT NULL,
             category TEXT NOT NULL,
@@ -164,32 +162,28 @@ def init_db():
             user_id INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        """
-    )
+    """)
     add_missing_column(db, "expenses", "is_recurring", "INTEGER NOT NULL DEFAULT 0")
     add_missing_column(db, "expenses", "user_id", "INTEGER NOT NULL DEFAULT 0")
     guest_row = db.execute("SELECT id FROM users WHERE username = ?", ("guest",)).fetchone()
     guest_id = guest_row["id"] if isinstance(guest_row, dict) else guest_row[0]
     db.execute("UPDATE expenses SET user_id = ? WHERE user_id = 0", (guest_id,))
 
-    db.execute(
-        """
+    db.execute(f"""
         CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_type},
             user_id INTEGER NOT NULL DEFAULT 0,
             key TEXT NOT NULL,
             value TEXT NOT NULL
         )
-        """
-    )
+    """)
     add_missing_column(db, "settings", "user_id", "INTEGER NOT NULL DEFAULT 0")
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_user_key ON settings(user_id, key)")
     db.execute("UPDATE settings SET user_id = ? WHERE user_id = 0", (guest_id,))
 
-    db.execute(
-        """
+    db.execute(f"""
         CREATE TABLE IF NOT EXISTS expense_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_type},
             expense_id INTEGER,
             action_type TEXT NOT NULL,
             description TEXT NOT NULL,
@@ -198,12 +192,10 @@ def init_db():
             action_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             user_id INTEGER NOT NULL DEFAULT 0
         )
-        """
-    )
+    """)
 
     db.commit()
     db.close()
-
 
 def get_guest_user():
     db = get_db()
