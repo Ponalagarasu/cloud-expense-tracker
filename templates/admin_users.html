@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - User Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light py-4">
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>User Management</h2>
+        <a href="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+    </div>
+
+    <!-- Create User Card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">Create New User</div>
+        <div class="card-body">
+            <form method="POST" action="/admin/users" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="username" class="form-control" placeholder="Username" required>
+                </div>
+                <div class="col-md-4">
+                    <input type="password" name="password" class="form-control" placeholder="Password" required>
+                </div>
+                <div class="col-md-2">
+                    <select name="role" class="form-select">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Table Card -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white font-weight-bold">Registered Users</div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Expenses Count</th>
+                        <th>Total Spent</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td><strong>{{ u.username }}</strong></td>
+                        <td>
+                            <span class="badge {% if u.role == 'admin' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td>{{ u.total_expenses }}</td>
+                        <td>₹{{ "%.2f"|format(u.total_spent) }}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-2">
+                                {% if u.id != current_user.id %}
+                                <form method="POST" action="/admin/users/{{ u.id }}/toggle-role" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">
+                                        Make {{ 'User' if u.role == 'admin' else 'Admin' }}
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="/admin/users/{{ u.id }}/delete" class="d-inline"
+                                      onsubmit="return confirm('Delete user {{ u.username }} and all their expenses?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-light text-muted border">Current Admin</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

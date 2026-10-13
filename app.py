@@ -5,7 +5,7 @@ import sqlite3
 from collections import defaultdict
 from datetime import date
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -831,6 +831,108 @@ def dashboard_data():
 
 
 init_db()
+
+from werkzeug.security import generate_password_hash
+
+# 1. Admin Dashboard to View All Users and Create a New User
+@app.route("/admin/users", methods=["GET", "POST"])
+def admin_manage_users():
+    current_user = get_current_user()
+    if not current_user or not is_admin_user(current_user):
+        return redirect(url_for("index"))
+
+    db = get_db()
+
+    # Handle creation of a new user by Admin
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        role = request.form.get("role", "user").strip()
+
+        if username and password:
+            hashed_pw = generate_password_hash(password)
+            try:
+                db.execute(
+                    "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                    (username, hashed_pw, role)
+                )
+                db.commit()
+            except Exception as e:
+                # Username already exists or error
+                pass
+        return redirect(url_for("admin_manage_users"))
+
+    # Fetch all users along with their total spent and transaction counts
+    users = db.execute("""
+        SELECT u.id, u.username, u.role,
+               COUNT(e.id) AS total_expenses,
+               COALESCE(SUM(e.amount), 0) AS total_spent
+        FROM users u
+        LEFT JOIN expenses e ON u.id = e.user_id
+        GROUP BY u.id, u.username, u.role
+        ORDER BY u.id ASC
+    """).fetchall()
+
+    return render_template("admin_users.html", users=users, current_user=current_user)
+
+
+# 2. Toggle User Role (User <-> Admin)
+@app.route("/admin/users/<int:user_id>/toggle-role", methods=["POST"])
+def admin_toggle_role(user_id):
+    current_user = get_current_user()
+    if not current_user or not is_admin_user(current_user):
+        return redirect(url_for("index"))
+
+    # Prevent admin from demoting themselves accidentally
+    if current_user["id"] == user_id:
+        return redirect(url_for("admin_manage_users"))
+
+    db = get_db()
+    target = db.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    if target:
+        new_role = "admin" if target["role"] != "admin" else "user"
+        db.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
+        db.commit()
+
+    return redirect(url_for("admin_manage_users"))
+
+
+# 3. Reset a User's Password
+@app.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
+def admin_reset_password(user_id):
+    current_user = get_current_user()
+    if not current_user or not is_admin_user(current_user):
+        return redirect(url_for("index"))
+
+    new_password = request.form.get("new_password", "").strip()
+    if new_password:
+        hashed_pw = generate_password_hash(new_password)
+        db = get_db()
+        db.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_pw, user_id))
+        db.commit()
+
+    return redirect(url_for("admin_manage_users"))
+
+
+# 4. Delete a User and their Records
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+def admin_delete_user(user_id):
+    current_user = get_current_user()
+    if not current_user or not is_admin_user(current_user):
+        return redirect(url_for("index"))
+
+    # Prevent admin from deleting their own account
+    if current_user["id"] == user_id:
+        return redirect(url_for("admin_manage_users"))
+
+    db = get_db()
+    # Delete associated user records first to maintain integrity
+    db.execute("DELETE FROM expense_history WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM expenses WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    db.commit()
+
+    return redirect(url_for("admin_manage_users"))
 
 if __name__ == "__main__":
     init_db()

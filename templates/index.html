@@ -299,8 +299,9 @@
             <a href="/history" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">History</a>
             <a href="/guide" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Guide</a>
             {% if current_user.role == 'admin' %}
-              <a href="/admin" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Admin</a>
-            {% endif %}
+          <a href="/admin" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Admin</a>
+          <a href="/admin/users" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Manage Users</a>
+        {% endif %}
             <a href="/logout" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Logout</a>
           {% else %}
             <a href="/login" style="text-decoration:none; color: var(--primary-strong); font-weight:700;">Login</a>
