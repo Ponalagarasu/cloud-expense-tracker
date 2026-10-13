@@ -357,3 +357,40 @@ def test_admin_panel_and_history_tracking(client):
 
     assert history_count >= 1
     assert season_total is not None
+
+
+def test_admin_can_view_and_manage_user_expense(client):
+    with app.app_context():
+        db = client.application.config["DATABASE"]
+        conn = __import__("sqlite3").connect(db)
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            ("alice", __import__("werkzeug.security").security.generate_password_hash("secret123"), "user"),
+        )
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            ("adminuser", __import__("werkzeug.security").security.generate_password_hash("secret123"), "admin"),
+        )
+        alice_id = conn.execute("SELECT id FROM users WHERE username = ?", ("alice",)).fetchone()[0]
+        conn.execute(
+            "INSERT INTO expenses (title, amount, category, date, is_recurring, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+            ("Alice groceries", "88.00", "Food", "2026-09-20", 0, alice_id),
+        )
+        conn.commit()
+        conn.close()
+
+    client.post("/login", data={"username": "adminuser", "password": "secret123"}, follow_redirects=True)
+    with app.app_context():
+        db = client.application.config["DATABASE"]
+        conn = __import__("sqlite3").connect(db)
+        alice_id = conn.execute("SELECT id FROM users WHERE username = ?", ("alice",)).fetchone()[0]
+        expense_id = conn.execute("SELECT id FROM expenses WHERE title = ?", ("Alice groceries",)).fetchone()[0]
+        conn.close()
+
+    response = client.get(f"/?user_id={alice_id}")
+    assert response.status_code == 200
+    assert b"Alice groceries" in response.data
+
+    response = client.post(f"/expenses/{expense_id}/delete", follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Alice groceries" not in response.data
