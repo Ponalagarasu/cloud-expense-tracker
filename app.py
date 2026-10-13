@@ -119,7 +119,12 @@ def add_missing_column(db, table_name, column_name, definition):
 
     try:
         db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+        db.commit()
     except Exception as exc:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         if "duplicate column" not in str(exc).lower() and "already exists" not in str(exc).lower():
             raise
 
