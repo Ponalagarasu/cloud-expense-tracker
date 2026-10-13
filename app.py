@@ -834,7 +834,7 @@ init_db()
 
 from werkzeug.security import generate_password_hash
 
-# 1. Admin Dashboard to View All Users and Create a New User
+# 1. Admin Dashboard to View All Users, Search/Filter, and Create a New User
 @app.route("/admin/users", methods=["GET", "POST"])
 def admin_manage_users():
     current_user = get_current_user()
@@ -843,7 +843,7 @@ def admin_manage_users():
 
     db = get_db()
 
-    # Handle creation of a new user by Admin
+    # Handle creation of a new user
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
@@ -857,25 +857,82 @@ def admin_manage_users():
                     (username, hashed_pw, role)
                 )
                 db.commit()
-            except Exception as e:
-                # Username already exists or error
+            except Exception:
                 pass
         return redirect(url_for("admin_manage_users"))
 
-    # Fetch all users along with their total spent and transaction counts
-    users = db.execute("""
+    # Search query parameter & role filter
+    search_query = request.args.get("q", "").strip()
+    role_filter = request.args.get("role_filter", "").strip()
+
+    sql = """
         SELECT u.id, u.username, u.role,
                COUNT(e.id) AS total_expenses,
                COALESCE(SUM(e.amount), 0) AS total_spent
         FROM users u
         LEFT JOIN expenses e ON u.id = e.user_id
-        GROUP BY u.id, u.username, u.role
-        ORDER BY u.id ASC
+    """
+    params = []
+    clauses = []
+
+    if search_query:
+        clauses.append("u.username LIKE ?")
+        params.append(f"%{search_query}%")
+
+    if role_filter in ["admin", "user"]:
+        clauses.append("u.role = ?")
+        params.append(role_filter)
+
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+
+    sql += " GROUP BY u.id, u.username, u.role ORDER BY u.id ASC"
+    users = db.execute(sql, params).fetchall()
+
+    return render_template(
+        "admin_users.html",
+        users=users,
+        current_user=current_user,
+        search_query=search_query,
+        role_filter=role_filter
+    )
+
+
+# Admin CSV Export Route
+@app.route("/admin/export/csv")
+def admin_export_csv():
+    current_user = get_current_user()
+    if not current_user or not is_admin_user(current_user):
+        return redirect(url_for("index"))
+
+    db = get_db()
+    expenses = db.execute("""
+        SELECT e.id, u.username, e.title, e.amount, e.category, e.date
+        FROM expenses e
+        LEFT JOIN users u ON e.user_id = u.id
+        ORDER BY e.date DESC, e.id DESC
     """).fetchall()
 
-    return render_template("admin_users.html", users=users, current_user=current_user)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Expense ID", "Username", "Title", "Amount (INR)", "Category", "Date"])
 
+    for row in expenses:
+        writer.writerow([
+            row["id"],
+            row["username"] if row["username"] else "Unassigned",
+            row["title"],
+            f"{row['amount']:.2f}",
+            row["category"],
+            row["date"]
+        ])
 
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=all_users_expense_report.csv"}
+    )
 # 2. Toggle User Role (User <-> Admin)
 @app.route("/admin/users/<int:user_id>/toggle-role", methods=["POST"])
 def admin_toggle_role(user_id):
