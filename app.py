@@ -327,7 +327,11 @@ def set_setting(key, value):
 def get_expenses(category=None, month=None, search=None, user_id=None):
     db = get_db()
     current_user = get_current_user()
-   if current_user and is_admin_user(current_user):
+    query = "SELECT * FROM expenses"
+    params = []
+    clauses = []
+
+    if current_user and is_admin_user(current_user):
         if user_id is not None:
             clauses.append("user_id = ?")
             params.append(user_id)
@@ -338,9 +342,11 @@ def get_expenses(category=None, month=None, search=None, user_id=None):
     if category:
         clauses.append("category = ?")
         params.append(category)
+
     if month:
         clauses.append("substr(date, 1, 7) = ?")
         params.append(month)
+
     if search:
         clauses.append("title LIKE ?")
         params.append(f"%{search}%")
@@ -370,9 +376,11 @@ def get_summary(category=None, month=None, search=None, user_id=None):
     if category:
         clauses.append("category = ?")
         params.append(category)
+
     if month:
         clauses.append("substr(date, 1, 7) = ?")
         params.append(month)
+
     if search:
         clauses.append("title LIKE ?")
         params.append(f"%{search}%")
