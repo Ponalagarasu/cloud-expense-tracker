@@ -341,7 +341,7 @@ def get_summary(category=None, month=None, search=None):
     db = get_db()
     user = get_current_user()
     user_id = user["id"] if user else 0
-    query = "SELECT category, ROUND(SUM(amount), 2) AS total FROM expenses WHERE user_id = ?"
+    query = "SELECT category, ROUND(CAST(SUM(amount) AS numeric), 2) AS total FROM expenses WHERE user_id = ?"
     params = [user_id]
     clauses = []
 
