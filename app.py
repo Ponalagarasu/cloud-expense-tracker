@@ -282,6 +282,18 @@ def get_current_user():
     return dict(row)
 
 
+def get_scope_user_id(requested_user_id=None):
+    current_user = get_current_user()
+    if current_user and is_admin_user(current_user):
+        if requested_user_id in (None, "", "all"):
+            return None
+        try:
+            return int(requested_user_id)
+        except (TypeError, ValueError):
+            return None
+    return current_user["id"] if current_user else 0
+
+
 def get_setting(key, default="0"):
     db = get_db()
     user = get_current_user()
@@ -312,13 +324,16 @@ def set_setting(key, value):
     db.commit()
 
 
-def get_expenses(category=None, month=None, search=None):
+def get_expenses(category=None, month=None, search=None, user_id=None):
     db = get_db()
-    user = get_current_user()
-    user_id = user["id"] if user else 0
-    query = "SELECT * FROM expenses WHERE user_id = ?"
-    params = [user_id]
-    clauses = []
+    current_user = get_current_user()
+   if current_user and is_admin_user(current_user):
+        if user_id is not None:
+            clauses.append("user_id = ?")
+            params.append(user_id)
+    else:
+        clauses.append("user_id = ?")
+        params.append(current_user["id"] if current_user else 0)
 
     if category:
         clauses.append("category = ?")
@@ -331,19 +346,26 @@ def get_expenses(category=None, month=None, search=None):
         params.append(f"%{search}%")
 
     if clauses:
-        query += " AND " + " AND ".join(clauses)
+        query += " WHERE " + " AND ".join(clauses)
 
     query += " ORDER BY date DESC, id DESC"
     return db.execute(query, params).fetchall()
 
 
-def get_summary(category=None, month=None, search=None):
+def get_summary(category=None, month=None, search=None, user_id=None):
     db = get_db()
-    user = get_current_user()
-    user_id = user["id"] if user else 0
-    query = "SELECT category, ROUND(CAST(SUM(amount) AS numeric), 2) AS total FROM expenses WHERE user_id = ?"
-    params = [user_id]
+    current_user = get_current_user()
+    query = "SELECT category, ROUND(CAST(SUM(amount) AS numeric), 2) AS total FROM expenses"
+    params = []
     clauses = []
+
+    if current_user and is_admin_user(current_user):
+        if user_id is not None:
+            clauses.append("user_id = ?")
+            params.append(user_id)
+    else:
+        clauses.append("user_id = ?")
+        params.append(current_user["id"] if current_user else 0)
 
     if category:
         clauses.append("category = ?")
@@ -356,15 +378,15 @@ def get_summary(category=None, month=None, search=None):
         params.append(f"%{search}%")
 
     if clauses:
-        query += " AND " + " AND ".join(clauses)
+        query += " WHERE " + " AND ".join(clauses)
 
     query += " GROUP BY category ORDER BY total DESC"
     rows = db.execute(query, params).fetchall()
     return [dict(row) for row in rows]
 
 
-def get_dashboard_data(category=None, month=None, search=None):
-    expenses = get_expenses(category, month, search)
+def get_dashboard_data(category=None, month=None, search=None, user_id=None):
+    expenses = get_expenses(category, month, search, user_id=user_id)
     total_spent = round(sum(float(item["amount"]) for item in expenses), 2)
 
     recurring_expenses = []
@@ -426,22 +448,45 @@ def index():
     selected_category = request.args.get("category", "").strip()
     selected_month = request.args.get("month", "").strip()
     search_term = request.args.get("q", "").strip()
-    expenses = get_expenses(selected_category, selected_month, search_term)
-    totals = get_summary(selected_category, selected_month, search_term)
+    requested_user_id = request.args.get("user_id")
+    scope_user_id = get_scope_user_id(requested_user_id)
+    expenses = get_expenses(selected_category, selected_month, search_term, user_id=scope_user_id)
+    totals = get_summary(selected_category, selected_month, search_term, user_id=scope_user_id)
     total_spent = sum(float(item["amount"]) for item in expenses)
-    dashboard = get_dashboard_data(selected_category, selected_month, search_term)
+    dashboard = get_dashboard_data(selected_category, selected_month, search_term, user_id=scope_user_id)
     monthly_budget = float(get_setting("monthly_budget", "0"))
     remaining_budget = monthly_budget - total_spent
 
-    user_id = current_user["id"] if current_user else 0
+    user_id = scope_user_id if scope_user_id is not None else 0
     db = get_db()
+    categories_query = "SELECT DISTINCT category FROM expenses"
+    category_params = []
+    if current_user and is_admin_user(current_user):
+        if scope_user_id is not None:
+            categories_query += " WHERE user_id = ?"
+            category_params.append(scope_user_id)
+    else:
+        categories_query += " WHERE user_id = ?"
+        category_params.append(user_id)
+    categories_query += " ORDER BY category ASC"
     categories = [
         row["category"] if isinstance(row, dict) else row[0]
-        for row in db.execute("SELECT DISTINCT category FROM expenses WHERE user_id = ? ORDER BY category ASC", (user_id,)).fetchall()
+        for row in db.execute(categories_query, category_params).fetchall()
     ]
+
+    months_query = "SELECT DISTINCT substr(date, 1, 7) AS month FROM expenses"
+    month_params = []
+    if current_user and is_admin_user(current_user):
+        if scope_user_id is not None:
+            months_query += " WHERE user_id = ?"
+            month_params.append(scope_user_id)
+    else:
+        months_query += " WHERE user_id = ?"
+        month_params.append(user_id)
+    months_query += " ORDER BY month DESC"
     months = [
         row["month"] if isinstance(row, dict) else row[0]
-        for row in db.execute("SELECT DISTINCT substr(date, 1, 7) AS month FROM expenses WHERE user_id = ? ORDER BY month DESC", (user_id,)).fetchall()
+        for row in db.execute(months_query, month_params).fetchall()
     ]
 
     return render_template(
@@ -478,21 +523,30 @@ def add_expense():
     if user is None:
         return redirect("/login")
 
+    target_user_id = user["id"]
+    if is_admin_user(user):
+        requested_user_id = request.form.get("user_id", "").strip()
+        if requested_user_id:
+            try:
+                target_user_id = int(requested_user_id)
+            except ValueError:
+                target_user_id = user["id"]
+
     db = get_db()
     cursor = db.execute(
         "INSERT INTO expenses (title, amount, category, date, is_recurring, user_id) VALUES (?, ?, ?, ?, ?, ?)",
-        (title, float(amount), category, expense_date, int(is_recurring), user["id"]),
+        (title, float(amount), category, expense_date, int(is_recurring), target_user_id),
     )
     db.commit()
     record_expense_history(
         cursor.lastrowid,
         "created",
         f"Expense '{title}' was added.",
-        user["id"],
+        target_user_id,
         float(amount),
         category,
     )
-    return redirect("/")
+    return redirect(f"/?user_id={target_user_id}" if is_admin_user(user) else "/")
 
 
 @app.route("/summary")
@@ -501,22 +555,45 @@ def summary():
     selected_category = request.args.get("category", "").strip()
     selected_month = request.args.get("month", "").strip()
     search_term = request.args.get("q", "").strip()
-    expenses = get_expenses(selected_category, selected_month, search_term)
-    totals = get_summary(selected_category, selected_month, search_term)
+    requested_user_id = request.args.get("user_id")
+    scope_user_id = get_scope_user_id(requested_user_id)
+    expenses = get_expenses(selected_category, selected_month, search_term, user_id=scope_user_id)
+    totals = get_summary(selected_category, selected_month, search_term, user_id=scope_user_id)
     total_spent = sum(float(item["amount"]) for item in expenses)
-    dashboard = get_dashboard_data(selected_category, selected_month, search_term)
+    dashboard = get_dashboard_data(selected_category, selected_month, search_term, user_id=scope_user_id)
     monthly_budget = float(get_setting("monthly_budget", "0"))
     remaining_budget = monthly_budget - total_spent
 
-    user_id = current_user["id"] if current_user else 0
+    user_id = scope_user_id if scope_user_id is not None else 0
     db = get_db()
+    categories_query = "SELECT DISTINCT category FROM expenses"
+    category_params = []
+    if current_user and is_admin_user(current_user):
+        if scope_user_id is not None:
+            categories_query += " WHERE user_id = ?"
+            category_params.append(scope_user_id)
+    else:
+        categories_query += " WHERE user_id = ?"
+        category_params.append(user_id)
+    categories_query += " ORDER BY category ASC"
     categories = [
         row["category"] if isinstance(row, dict) else row[0]
-        for row in db.execute("SELECT DISTINCT category FROM expenses WHERE user_id = ? ORDER BY category ASC", (user_id,)).fetchall()
+        for row in db.execute(categories_query, category_params).fetchall()
     ]
+
+    months_query = "SELECT DISTINCT substr(date, 1, 7) AS month FROM expenses"
+    month_params = []
+    if current_user and is_admin_user(current_user):
+        if scope_user_id is not None:
+            months_query += " WHERE user_id = ?"
+            month_params.append(scope_user_id)
+    else:
+        months_query += " WHERE user_id = ?"
+        month_params.append(user_id)
+    months_query += " ORDER BY month DESC"
     months = [
         row["month"] if isinstance(row, dict) else row[0]
-        for row in db.execute("SELECT DISTINCT substr(date, 1, 7) AS month FROM expenses WHERE user_id = ? ORDER BY month DESC", (user_id,)).fetchall()
+        for row in db.execute(months_query, month_params).fetchall()
     ]
 
     return render_template(
@@ -554,24 +631,35 @@ def edit_expense(expense_id):
         return redirect("/login")
 
     db = get_db()
-    existing = db.execute("SELECT * FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"])).fetchone()
+    if is_admin_user(user):
+        existing = db.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,)).fetchone()
+    else:
+        existing = db.execute("SELECT * FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"])).fetchone()
     if existing is None:
         return redirect("/")
 
-    db.execute(
-        "UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, is_recurring = ? WHERE id = ? AND user_id = ?",
-        (title, float(amount), category, expense_date, int(is_recurring), expense_id, user["id"]),
-    )
+    if is_admin_user(user):
+        db.execute(
+            "UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, is_recurring = ? WHERE id = ?",
+            (title, float(amount), category, expense_date, int(is_recurring), expense_id),
+        )
+        target_user_id = existing["user_id"] if hasattr(existing, "keys") and "user_id" in existing.keys() else existing[6]
+    else:
+        db.execute(
+            "UPDATE expenses SET title = ?, amount = ?, category = ?, date = ?, is_recurring = ? WHERE id = ? AND user_id = ?",
+            (title, float(amount), category, expense_date, int(is_recurring), expense_id, user["id"]),
+        )
+        target_user_id = user["id"]
     db.commit()
     record_expense_history(
         expense_id,
         "updated",
         f"Expense '{existing['title']}' was updated to '{title}'.",
-        user["id"],
+        target_user_id,
         float(amount),
         category,
     )
-    return redirect("/")
+    return redirect(f"/?user_id={target_user_id}" if is_admin_user(user) else "/")
 
 
 @app.route("/expenses/<int:expense_id>/delete", methods=["POST"])
@@ -581,17 +669,24 @@ def delete_expense(expense_id):
         return redirect("/login")
 
     db = get_db()
-    existing = db.execute("SELECT * FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"])).fetchone()
+    if is_admin_user(user):
+        existing = db.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,)).fetchone()
+    else:
+        existing = db.execute("SELECT * FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"])).fetchone()
     if existing is not None:
+        target_user_id = existing["user_id"] if hasattr(existing, "keys") and "user_id" in existing.keys() else existing[6]
         record_expense_history(
             expense_id,
             "deleted",
             f"Expense '{existing['title']}' was removed.",
-            user["id"],
+            target_user_id,
             float(existing["amount"]),
             existing["category"],
         )
-    db.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"]))
+    if is_admin_user(user):
+        db.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+    else:
+        db.execute("DELETE FROM expenses WHERE id = ? AND user_id = ?", (expense_id, user["id"]))
     db.commit()
     return redirect("/")
 
@@ -609,7 +704,9 @@ def set_budget():
 
 @app.route("/export/csv")
 def export_csv():
-    expenses = get_expenses()
+    user = get_current_user()
+    scope_user_id = get_scope_user_id(request.args.get("user_id")) if user and is_admin_user(user) else None
+    expenses = get_expenses(user_id=scope_user_id) if user else get_expenses()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id", "title", "amount", "category", "date"])
@@ -720,7 +817,9 @@ def dashboard_data():
     selected_category = request.args.get("category", "").strip()
     selected_month = request.args.get("month", "").strip()
     search_term = request.args.get("q", "").strip()
-    return jsonify(get_dashboard_data(selected_category, selected_month, search_term))
+    requested_user_id = request.args.get("user_id")
+    scope_user_id = get_scope_user_id(requested_user_id)
+    return jsonify(get_dashboard_data(selected_category, selected_month, search_term, user_id=scope_user_id))
 
 
 init_db()
