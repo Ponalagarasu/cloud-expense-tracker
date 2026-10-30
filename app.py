@@ -991,6 +991,18 @@ def admin_delete_user(user_id):
 
     return redirect(url_for("admin_manage_users"))
 
+@app.route('/fix-db-sequences')
+def fix_db_sequences():
+    queries = [
+        "SELECT setval(pg_get_serial_sequence('expense_history', 'id'), COALESCE(MAX(id), 1)) FROM expense_history;",
+        "SELECT setval(pg_get_serial_sequence('expenses', 'id'), COALESCE(MAX(id), 1)) FROM expenses;",
+        "SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;"
+    ]
+    for q in queries:
+        db.execute(q)
+    return "Sequences fixed successfully!"
+
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=app.config["DEBUG"], host=app.config["HOST"], port=app.config["PORT"])
