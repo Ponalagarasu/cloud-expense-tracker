@@ -993,14 +993,25 @@ def admin_delete_user(user_id):
 
 @app.route('/fix-db-sequences')
 def fix_db_sequences():
-    queries = [
-        "SELECT setval('expenses_id_seq', (SELECT GREATEST(MAX(id), 100) FROM expenses));",
-        "SELECT setval('expense_history_id_seq', (SELECT GREATEST(MAX(id), 100) FROM expense_history));",
-        "SELECT setval('users_id_seq', (SELECT GREATEST(MAX(id), 100) FROM users));"
-    ]
-    for q in queries:
-        db.execute(q)
-    return "Sequences fixed successfully past 100!"
+    tables = ['expenses', 'expense_history', 'users']
+    results = []
+    
+    for table in tables:
+        try:
+            # Dynamically look up the exact sequence name attached to the table's id column
+            query = f"""
+            SELECT setval(
+                pg_get_serial_sequence('{table}', 'id'),
+                COALESCE((SELECT MAX(id) FROM {table}), 0) + 100,
+                true
+            );
+            """
+            db.execute(query)
+            results.append(f"Successfully bumped {table} sequence.")
+        except Exception as e:
+            results.append(f"Failed on {table}: {str(e)}")
+            
+    return "<br>".join(results)
 
 if __name__ == "__main__":
     init_db()
