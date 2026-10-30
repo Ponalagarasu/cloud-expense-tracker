@@ -965,7 +965,7 @@ def admin_reset_password(user_id):
     if new_password:
         hashed_pw = generate_password_hash(new_password)
         db = get_db()
-        db.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_pw, user_id))
+        db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_pw, user_id))
         db.commit()
 
     return redirect(url_for("admin_manage_users"))
