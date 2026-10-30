@@ -994,13 +994,13 @@ def admin_delete_user(user_id):
 @app.route('/fix-db-sequences')
 def fix_db_sequences():
     queries = [
-        "SELECT setval(pg_get_serial_sequence('expense_history', 'id'), COALESCE(MAX(id), 1)) FROM expense_history;",
-        "SELECT setval(pg_get_serial_sequence('expenses', 'id'), COALESCE(MAX(id), 1)) FROM expenses;",
-        "SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;"
+        "SELECT setval('expenses_id_seq', (SELECT GREATEST(MAX(id), 100) FROM expenses));",
+        "SELECT setval('expense_history_id_seq', (SELECT GREATEST(MAX(id), 100) FROM expense_history));",
+        "SELECT setval('users_id_seq', (SELECT GREATEST(MAX(id), 100) FROM users));"
     ]
     for q in queries:
         db.execute(q)
-    return "Sequences fixed successfully!"
+    return "Sequences fixed successfully past 100!"
 
 
 if __name__ == "__main__":
