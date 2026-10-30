@@ -1002,7 +1002,6 @@ def fix_db_sequences():
         db.execute(q)
     return "Sequences fixed successfully past 100!"
 
-
 if __name__ == "__main__":
     init_db()
     app.run(debug=app.config["DEBUG"], host=app.config["HOST"], port=app.config["PORT"])
