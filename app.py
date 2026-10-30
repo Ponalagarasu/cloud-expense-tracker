@@ -260,7 +260,7 @@ def get_season_for_date(date_value):
 def record_expense_history(expense_id, action_type, description, user_id, amount=None, category=None):
     db = get_db()
     db.execute(
-        "INSERT INTO expense_history (expense_id, action_type, description, amount, category, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO expense_history (id, expense_id, action_type, description, amount, category, user_id) VALUES (COALESCE((SELECT MAX(id) FROM expense_history), 0) + 1, ?, ?, ?, ?, ?, ?)",
         (expense_id, action_type, description, amount, category, user_id),
     )
     db.commit()
@@ -542,7 +542,7 @@ def add_expense():
 
     db = get_db()
     cursor = db.execute(
-        "INSERT INTO expenses (title, amount, category, date, is_recurring, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO expenses (id, title, amount, category, date, is_recurring, user_id) VALUES (COALESCE((SELECT MAX(id) FROM expenses), 0) + 1, ?, ?, ?, ?, ?, ?)",
         (title, float(amount), category, expense_date, int(is_recurring), target_user_id),
     )
     db.commit()
