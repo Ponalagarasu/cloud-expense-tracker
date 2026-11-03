@@ -57,7 +57,7 @@
           <tbody>
             {% for item in history %}
             <tr>
-              <td>{{ item["action_date"][:16] if item["action_date"] else "" }}</td>
+              <td>{{ (item["action_date"]|string)[:16] if item["action_date"] else "" }}</td>
               <td>{{ item["action_type"] }}</td>
               <td>{{ item["category"] or 'General' }}</td>
               <td>{{ format_inr(item["amount"] or 0) }}</td>
