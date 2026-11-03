@@ -548,8 +548,11 @@ def add_expense():
                 target_user_id = user["id"]
 
     db = get_db()
-    row = db.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM expenses").fetchone()
-    new_expense_id = row[0] if row else 1
+    row = db.execute("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM expenses").fetchone()
+    if row:
+        new_expense_id = row["next_id"] if isinstance(row, dict) or hasattr(row, "keys") else row[0]
+    else:
+        new_expense_id = 1
 
     if is_postgres_enabled():
         db.execute(
