@@ -829,13 +829,22 @@ def expense_history_page():
         return redirect("/login")
 
     db = get_db()
-    if is_admin_user(user):
-        history = db.execute("SELECT * FROM expense_history ORDER BY action_date DESC LIMIT 50").fetchall()
+    if is_postgres_enabled():
+        if is_admin_user(user):
+            history = db.execute("SELECT * FROM expense_history ORDER BY action_date DESC LIMIT 50").fetchall()
+        else:
+            history = db.execute(
+                "SELECT * FROM expense_history WHERE user_id = %s ORDER BY action_date DESC LIMIT 50",
+                (user["id"],),
+            ).fetchall()
     else:
-        history = db.execute(
-            "SELECT * FROM expense_history WHERE user_id = ? ORDER BY action_date DESC LIMIT 50",
-            (user["id"],),
-        ).fetchall()
+        if is_admin_user(user):
+            history = db.execute("SELECT * FROM expense_history ORDER BY action_date DESC LIMIT 50").fetchall()
+        else:
+            history = db.execute(
+                "SELECT * FROM expense_history WHERE user_id = ? ORDER BY action_date DESC LIMIT 50",
+                (user["id"],),
+            ).fetchall()
 
     return render_template("history.html", current_user=user, history=history, format_inr=format_inr)
 
