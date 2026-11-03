@@ -313,12 +313,12 @@ def set_setting(key, value):
 
     if is_postgres_enabled():
         db.execute(
-            "INSERT INTO settings (user_id, key, value) VALUES (%s, %s, %s) ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
+            "INSERT INTO settings (id, user_id, key, value) VALUES (COALESCE((SELECT MAX(id) FROM settings), 0) + 1, %s, %s, %s) ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value",
             (user_id, key, str(value)),
         )
     else:
         db.execute(
-            "INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value",
+            "INSERT INTO settings (id, user_id, key, value) VALUES (COALESCE((SELECT MAX(id) FROM settings), 0) + 1, ?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = EXCLUDED.value",
             (user_id, key, str(value)),
         )
     db.commit()
