@@ -821,7 +821,7 @@ def guide():
     user = get_current_user()
     return render_template("guide.html", current_user=user, format_inr=format_inr)
 
-
+@app.route("/history")
 @app.route("/history")
 def expense_history_page():
     user = get_current_user()
@@ -829,23 +829,33 @@ def expense_history_page():
         return redirect("/login")
 
     db = get_db()
-    if is_postgres_enabled():
-        if is_admin_user(user):
-            history = db.execute("SELECT * FROM expense_history ORDER BY action_date DESC LIMIT 50").fetchall()
-        else:
-            history = db.execute(
-                "SELECT * FROM expense_history WHERE user_id = %s ORDER BY action_date DESC LIMIT 50",
-                (user["id"],),
-            ).fetchall()
-    else:
-        if is_admin_user(user):
-            history = db.execute("SELECT * FROM expense_history ORDER BY action_date DESC LIMIT 50").fetchall()
-        else:
-            history = db.execute(
-                "SELECT * FROM expense_history WHERE user_id = ? ORDER BY action_date DESC LIMIT 50",
-                (user["id"],),
-            ).fetchall()
+    action_filter = request.args.get("action", "").strip().lower()
 
+    conditions = []
+    params = []
+
+    # If regular user, restrict to their own records
+    if not is_admin_user(user):
+        conditions.append("user_id = %s" if is_postgres_enabled() else "user_id = ?")
+        params.append(user["id"])
+
+    # If a filter button was clicked, filter by action_type
+    if action_filter in ("created", "updated", "deleted"):
+        conditions.append("action_type = %s" if is_postgres_enabled() else "action_type = ?")
+        params.append(action_filter)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = f"SELECT * FROM expense_history {where_clause} ORDER BY action_date DESC LIMIT 50"
+
+    history = db.execute(query, tuple(params)).fetchall()
+
+    return render_template(
+        "history.html",
+        current_user=user,
+        history=history,
+        format_inr=format_inr,
+        selected_action=action_filter
+    )
     return render_template("history.html", current_user=user, history=history, format_inr=format_inr)
 
 
