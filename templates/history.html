@@ -33,10 +33,30 @@
         text-align: left;
       }
       .link {
-        color: #1d4ed8;
-        text-decoration: none;
-        font-weight: 700;
-      }
+            color: #1d4ed8;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 9999px;
+            text-transform: capitalize;
+        }
+        .badge-created {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+        .badge-updated {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+        .badge-deleted {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
     </style>
   </head>
   <body>
@@ -55,14 +75,14 @@
             </tr>
           </thead>
           <tbody>
-            {% for item in history %}
-            <tr>
-              <td>{{ (item["action_date"]|string)[:16] if item["action_date"] else "" }}</td>
-              <td>{{ item["action_type"] }}</td>
-              <td>{{ item["category"] or 'General' }}</td>
-              <td>{{ format_inr(item["amount"] or 0) }}</td>
-              <td>{{ item["description"] }}</td>
-            </tr>
+           {% for item in history %}
+      <tr>
+        <td>{{ (item["action_date"]|string)[:16] if item["action_date"] else "" }}</td>
+        <td><span class="badge badge-{{ item['action_type'].lower() }}">{{ item["action_type"] }}</span></td>
+        <td>{{ item["category"] or 'General' }}</td>
+        <td>{{ format_inr(item["amount"] or 0) }}</td>
+        <td>{{ item["description"] }}</td>
+      </tr>
             {% else %}
             <tr><td colspan="5">No history yet.</td></tr>
             {% endfor %}
