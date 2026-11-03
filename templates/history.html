@@ -61,6 +61,24 @@
             display: flex;
             gap: 8px;
             margin: 16px 0;
+            
+        }
+        .btn-export {
+            margin-left: auto;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            color: #047857;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-export:hover {
+            background: #d1fae5;
         }
         .filter-btn {
             padding: 6px 14px;
@@ -90,11 +108,15 @@
             <p><a class="link" href="/">Back to dashboard</a></p>
 
             <div class="filter-bar">
-                <a href="/history" class="filter-btn {{ 'active' if not selected_action else '' }}">All</a>
-                <a href="/history?action=created" class="filter-btn {{ 'active' if selected_action == 'created' else '' }}">Created</a>
-                <a href="/history?action=updated" class="filter-btn {{ 'active' if selected_action == 'updated' else '' }}">Updated</a>
-                <a href="/history?action=deleted" class="filter-btn {{ 'active' if selected_action == 'deleted' else '' }}">Deleted</a>
-            </div>
+    <a href="/history" class="filter-btn {{ 'active' if not selected_action else '' }}">All</a>
+    <a href="/history?action=created" class="filter-btn {{ 'active' if selected_action == 'created' else '' }}">Created</a>
+    <a href="/history?action=updated" class="filter-btn {{ 'active' if selected_action == 'updated' else '' }}">Updated</a>
+    <a href="/history?action=deleted" class="filter-btn {{ 'active' if selected_action == 'deleted' else '' }}">Deleted</a>
+
+    <a href="/history/export{{ '?action=' + selected_action if selected_action else '' }}" class="btn-export">
+        📥 Export Excel
+    </a>
+</div>
         <table>
           <thead>
             <tr>

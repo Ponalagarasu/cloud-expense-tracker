@@ -5,7 +5,7 @@ import sqlite3
 from collections import defaultdict
 from datetime import date
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -822,7 +822,6 @@ def guide():
     return render_template("guide.html", current_user=user, format_inr=format_inr)
 
 @app.route("/history")
-@app.route("/history")
 def expense_history_page():
     user = get_current_user()
     if user is None:
@@ -854,11 +853,57 @@ def expense_history_page():
         current_user=user,
         history=history,
         format_inr=format_inr,
-        selected_action=action_filter
+        selected_action=action_filter,
     )
-    return render_template("history.html", current_user=user, history=history, format_inr=format_inr)
+@app.route("/history/export")
+def export_history():
+    user = get_current_user()
+    if user is None:
+        return redirect("/login")
 
+    db = get_db()
+    action_filter = request.args.get("action", "").strip().lower()
 
+    conditions = []
+    params = []
+
+    if not is_admin_user(user):
+        conditions.append("user_id = %s" if is_postgres_enabled() else "user_id = ?")
+        params.append(user["id"])
+
+    if action_filter in ("created", "updated", "deleted"):
+        conditions.append("action_type = %s" if is_postgres_enabled() else "action_type = ?")
+        params.append(action_filter)
+
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    query = f"SELECT action_date, action_type, category, amount, description FROM expense_history {where_clause} ORDER BY action_date DESC"
+
+    rows = db.execute(query, tuple(params)).fetchall()
+
+    output = io.StringIO()
+    output.write("\ufeff")  # UTF-8 BOM so Excel opens currency and symbols properly
+    writer = csv.writer(output)
+
+    writer.writerow(["Date", "Action", "Category", "Amount", "Description"])
+
+    for r in rows:
+        action_date = str(r["action_date"])[:16] if r["action_date"] else ""
+        writer.writerow([
+            action_date,
+            r["action_type"].capitalize() if r["action_type"] else "",
+            r["category"] or "General",
+            float(r["amount"]) if r["amount"] else 0.0,
+            r["description"] or ""
+        ])
+
+    csv_data = output.getvalue()
+    filename = f"expense_history_{action_filter or 'all'}.csv"
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 @app.route("/api/dashboard-data")
 def dashboard_data():
     selected_category = request.args.get("category", "").strip()
