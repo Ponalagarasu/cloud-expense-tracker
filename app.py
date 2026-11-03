@@ -548,13 +548,23 @@ def add_expense():
                 target_user_id = user["id"]
 
     db = get_db()
-    cursor = db.execute(
-        "INSERT INTO expenses (id, title, amount, category, date, is_recurring, user_id) VALUES (COALESCE((SELECT MAX(id) FROM expenses), 0) + 1, ?, ?, ?, ?, ?, ?)",
-        (title, float(amount), category, expense_date, int(is_recurring), target_user_id),
-    )
+    row = db.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM expenses").fetchone()
+    new_expense_id = row[0] if row else 1
+
+    if is_postgres_enabled():
+        db.execute(
+            "INSERT INTO expenses (id, title, amount, category, date, is_recurring, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (new_expense_id, title, float(amount), category, expense_date, int(is_recurring), target_user_id),
+        )
+    else:
+        db.execute(
+            "INSERT INTO expenses (id, title, amount, category, date, is_recurring, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (new_expense_id, title, float(amount), category, expense_date, int(is_recurring), target_user_id),
+        )
     db.commit()
+
     record_expense_history(
-        cursor.lastrowid,
+        new_expense_id,
         "created",
         f"Expense '{title}' was added.",
         target_user_id,
