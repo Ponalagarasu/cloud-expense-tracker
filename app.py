@@ -757,7 +757,7 @@ def register():
             return render_template("register.html", error="Username already exists.")
         db = get_db()
         db.execute(
-            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            "INSERT INTO users (id, username, password_hash, role) VALUES (COALESCE((SELECT MAX(id) FROM users), 0) + 1, ?, ?, ?)",
             (username, generate_password_hash(password), "user"),
         )
         db.commit()
