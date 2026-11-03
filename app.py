@@ -460,11 +460,18 @@ def index():
     scope_user_id = get_scope_user_id(requested_user_id)
     expenses = get_expenses(selected_category, selected_month, search_term, user_id=scope_user_id)
     totals = get_summary(selected_category, selected_month, search_term, user_id=scope_user_id)
+    import datetime
+    current_month_str = datetime.date.today().strftime("%Y-%m")
+    current_month_spent = sum(
+        float(item["amount"]) 
+        for item in expenses 
+        if item.get("date", "").startswith(current_month_str)
+    )
+
     total_spent = sum(float(item["amount"]) for item in expenses)
     dashboard = get_dashboard_data(selected_category, selected_month, search_term, user_id=scope_user_id)
     monthly_budget = float(get_setting("monthly_budget", "0"))
-    remaining_budget = monthly_budget - total_spent
-
+    remaining_budget = monthly_budget - current_month_spent
     user_id = scope_user_id if scope_user_id is not None else 0
     db = get_db()
     categories_query = "SELECT DISTINCT category FROM expenses"
